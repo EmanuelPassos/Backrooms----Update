@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>BACKROOMS: THE ASCENSION - EMANUEL</title>
+    <style>
+        :root { --yellow: #ceb26b; --dark: #1a1a1a; }
+        * { box-sizing: border-box; -webkit-touch-callout: none; }
+        
+        body, html { 
+            margin: 0; padding: 0; width: 100%; height: 100%; 
+            overflow: hidden; background: #000; 
+            font-family: 'Courier New', monospace; 
+            touch-action: none; user-select: none; color: var(--yellow);
+        }
+
+        canvas { display: block; width: 100% !important; height: 100% !important; }
+        
+        .overlay { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            z-index: 1000; transition: opacity 0.5s; padding: 20px; text-align: center;
+            background: #000;
+        }
+        
+        #login-screen { border: 4px double var(--yellow); }
+        h1 { font-size: 1.5rem; margin: 0 0 10px 0; letter-spacing: 3px; }
+        input { 
+            background: transparent; border: 1px solid var(--yellow); 
+            color: var(--yellow); padding: 12px; font-size: 1rem; 
+            outline: none; text-align: center; margin: 15px; width: 90%; max-width: 300px; 
+        }
+        
+        #loading-screen { display: none; }
+        .load-bar-container { width: 80%; max-width: 250px; height: 10px; border: 1px solid var(--yellow); margin-top: 20px; }
+        #load-bar { width: 0%; height: 100%; background: var(--yellow); }
+
+        #hud { 
+            position: fixed; top: env(safe-area-inset-top, 15px); left: 15px; 
+            z-index: 10; display: none; pointer-events: none; 
+            background: rgba(0,0,0,0.6); padding: 8px; border-left: 3px solid red; font-size: 0.7rem; 
+        }
+        
+        #left-area { 
+            position: fixed; bottom: 0; left: 0; width: 50%; height: 70%; 
+            z-index: 100; display: none; 
+        }
+
+        /* Efeito de Surto Visual */
+        #insanity-filter { 
+            position: fixed; inset: 0; pointer-events: none; z-index: 600; display: none; 
+            background: radial-gradient(circle, transparent 20%, black 150%);
+        }
+        .insanity-active { display: block !important; animation: glitch-anim 0.2s infinite; backdrop-filter: invert(30%) contrast(200%) blur(2px); }
+        @keyframes glitch-anim { 0% { transform: translate(2px, 1px); } 50% { transform: translate(-2px, -1px); } 100% { transform: translate(0, 0); } }
+
+        button { background: var(--yellow); color: #000; border: none; padding: 15px 30px; font-size: 1rem; font-weight: bold; cursor: pointer; text-transform: uppercase; }
+    </style>
+</head>
+<body>
+
+    <div id="insanity-filter"></div>
+
+    <div id="login-screen" class="overlay">
+        <h1>ASYNC OS v.2.0</h1>
+        <p style="font-size: 0.7rem;">SISTEMA DE MAPEAMENTO REAL</p>
+        <input type="text" id="username" placeholder="NOME DO AGENTE" maxlength="15">
+        <button id="btn-login">CONECTAR</button>
+    </div>
+
+    <div id="loading-screen" class="overlay">
+        <p>SINCRONIZANDO REALIDADE...</p>
+        <div class="load-bar-container"><div id="load-bar"></div></div>
+    </div>
+
+    <div id="hud">● REC | AGENTE: <span id="user-display">---</span> | CHAVES: <span id="k-count">0</span>/7</div>
+    <div id="left-area"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
+
+    <script>
+        let moveInput = {x:0, y:0}, isPlaying = false, score = 0, isHallucinating = false;
+        let lastTouchX = 0, lookTouchId = null;
+        let isFalling = false; // Controle da cutscene de desmaio
+        const walls = [], keys = [];
+
+        // --- ENGINE ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a1a0a);
+        scene.fog = new THREE.Fog(0x1a1a0a, 1, 12);
+        
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 15, 0); 
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        function resize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        window.addEventListener('resize', resize);
+
+        const light = new THREE.PointLight(0xffffff, 15, 20);
+        camera.add(light);
+        scene.add(camera);
+        scene.add(new THREE.AmbientLight(0x404040, 0.8));
+
+        // --- MAPA ---
+        const wallMat = new THREE.MeshStandardMaterial({color: 0xceb26b, roughness: 1});
+        const floorMat = new THREE.MeshStandardMaterial({color: 0x8c7c4d});
+        const mapData = [
+            [1,1,1,1,1,1,1,1,1,1,1,1], [1,0,0,0,1,0,0,0,0,0,0,1],
+            [1,0,1,0,1,0,1,1,1,1,0,1], [1,0,1,0,0,0,0,0,0,1,0,1],
+            [1,0,1,1,0,1,1,1,0,1,0,1], [1,0,0,0,0,0,0,1,0,0,0,1],
+            [1,1,1,0,1,1,0,1,1,1,0,1], [1,0,0,0,1,0,0,0,0,1,0,1],
+            [1,0,1,1,1,0,1,1,0,1,0,1], [1,0,0,0,0,0,0,0,0,0,0,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1]
+        ];
+
+        const tileSize = 8;
+        mapData.forEach((row, z) => {
+            row.forEach((cell, x) => {
+                const px = (x - 6) * tileSize; const pz = (z - 5) * tileSize;
+                const floor = new THREE.Mesh(new THREE.PlaneGeometry(tileSize, tileSize), floorMat);
+                floor.rotation.x = -Math.PI/2; floor.position.set(px, 0, pz); scene.add(floor);
+                if(cell === 1) {
+                    const w = new THREE.Mesh(new THREE.BoxGeometry(tileSize, 6, tileSize), wallMat);
+                    w.position.set(px, 3, pz); scene.add(w); walls.push(w);
+                } else if(Math.random() > 0.9 && keys.length < 7) {
+                    const k = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.1), new THREE.MeshBasicMaterial({color: 0xff0000}));
+                    k.position.set(px, 1.2, pz); scene.add(k); keys.push(k);
+                }
+            });
+        });
+
+        // --- INPUTS ---
+        window.addEventListener('touchstart', e => {
+            if(!isPlaying || isFalling) return;
+            for(let i=0; i<e.changedTouches.length; i++) {
+                const touch = e.changedTouches[i];
+                if(touch.pageX > window.innerWidth / 2 && lookTouchId === null) {
+                    lookTouchId = touch.identifier; lastTouchX = touch.pageX;
+                }
+            }
+        });
+
+        window.addEventListener('touchmove', e => {
+            if(!isPlaying || lookTouchId === null || isFalling) return;
+            for(let i=0; i<e.touches.length; i++) {
+                if(e.touches[i].identifier === lookTouchId) {
+                    camera.rotation.y -= (e.touches[i].pageX - lastTouchX) * 0.006;
+                    lastTouchX = e.touches[i].pageX;
+                }
+            }
+        });
+
+        window.addEventListener('touchend', e => {
+            for(let i=0; i<e.changedTouches.length; i++) {
+                if(e.changedTouches[i].identifier === lookTouchId) lookTouchId = null;
+            }
+        });
+
+        // --- SISTEMA DE SURTO (3 MINUTOS) ---
+        function triggerInsanity() {
+            if (isFalling) return;
+            isHallucinating = true;
+            isFalling = true;
+            document.getElementById('insanity-filter').classList.add('insanity-active');
+
+            // Cutscene de Queda (Desmaio)
+            let fallTime = 0;
+            const fallInterval = setInterval(() => {
+                fallTime += 0.05;
+                if(camera.position.y > 0.4) camera.position.y -= 0.15;
+                camera.rotation.z += 0.05; // Gira a cabeça
+                
+                if(fallTime >= 1.5) {
+                    clearInterval(fallInterval);
+                    // Fica no chão por 2 segundos
+                    setTimeout(() => {
+                        // Levanta devagar
+                        const riseInterval = setInterval(() => {
+                            if(camera.position.y < 1.8) {
+                                camera.position.y += 0.05;
+                                camera.rotation.z -= 0.02;
+                            } else {
+                                clearInterval(riseInterval);
+                                camera.position.y = 1.8;
+                                camera.rotation.z = 0;
+                                isFalling = false;
+                                isHallucinating = false;
+                                document.getElementById('insanity-filter').classList.remove('insanity-active');
+                            }
+                        }, 50);
+                    }, 2000);
+                }
+            }, 30);
+        }
+
+        // --- FLUXO DO JOGO ---
+        document.getElementById('btn-login').onclick = () => {
+            document.getElementById('user-display').innerText = (document.getElementById('username').value || "EMANUEL").toUpperCase();
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('loading-screen').style.display = 'flex';
+            let p = 0;
+            const load = setInterval(() => {
+                p += 5; document.getElementById('load-bar').style.width = p + '%';
+                if(p >= 100) { clearInterval(load); startCutscene(); }
+            }, 50);
+        };
+
+        function startCutscene() {
+            document.getElementById('loading-screen').style.display = 'none';
+            const intro = setInterval(() => {
+                if(camera.position.y > 1.8) { camera.position.y -= 0.3; camera.rotation.z += 0.02; }
+                else { 
+                    clearInterval(intro); camera.position.y = 1.8; camera.rotation.z = 0;
+                    isPlaying = true; 
+                    document.getElementById('hud').style.display = 'block';
+                    document.getElementById('left-area').style.display = 'block';
+                    initJoystick();
+                }
+            }, 30);
+        }
+
+        function initJoystick() {
+            nipplejs.create({ zone: document.getElementById('left-area'), mode: 'static', position: {left: '80px', bottom: '80px'}, color: 'white', size: 100 })
+                .on('move', (e, d) => { moveInput = d.vector; })
+                .on('end', () => { moveInput = {x:0, y:0}; });
+            
+            // CONFIGURADO PARA 3 MINUTOS (180000ms)
+            setInterval(() => { if(isPlaying) triggerInsanity(); }, 180000);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if(!isPlaying) { renderer.render(scene, camera); return; }
+
+            // Se estiver em surto/queda, a velocidade é quase zero
+            const speed = isFalling ? 0.02 : (isHallucinating ? 0.05 : 0.22);
+            
+            const forward = new THREE.Vector3();
+            camera.getWorldDirection(forward);
+            forward.y = 0; forward.normalize();
+            const side = new THREE.Vector3().crossVectors(forward, camera.up).normalize();
+
+            const nx = camera.position.x + (forward.x * moveInput.y * speed) - (side.x * moveInput.x * speed);
+            const nz = camera.position.z + (forward.z * moveInput.y * speed) - (side.z * moveInput.x * speed);
+
+            let hit = false;
+            for(let w of walls) {
+                if(Math.abs(nx - w.position.x) < 4.2 && Math.abs(nz - w.position.z) < 4.2) { hit = true; break; }
+            }
+            if(!hit && !isFalling) { 
+                camera.position.x = nx; 
+                camera.position.z = nz; 
+            }
+
+            // Bobbing da câmera (respiração)
+            if(!isFalling) camera.position.y = 1.8 + Math.sin(Date.now() * 0.003) * 0.02;
+
+            keys.forEach(k => {
+                if(k.visible && camera.position.distanceTo(k.position) < 2.5) {
+                    k.visible = false; score++; document.getElementById('k-count').innerText = score;
+                }
+            });
+            renderer.render(scene, camera);
+        }
+        
+        resize();
+        animate();
+    </script>
+</body>
+</html>
