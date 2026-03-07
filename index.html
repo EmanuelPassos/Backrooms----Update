@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>BACKROOMS: THE ASCENSION</title>
+    <style>
+        :root { --yellow: #ceb26b; --dark: #1a1a1a; }
+        * { box-sizing: border-box; -webkit-touch-callout: none; outline: none; margin: 0; padding: 0; }
+        body, html { 
+            width: 100%; 
+            height: 100%; 
+            height: 100vh;
+            overflow: hidden; 
+            background: #000; 
+            font-family: 'Courier New', monospace; 
+            touch-action: none; 
+            user-select: none; 
+            color: var(--yellow); 
+            position: fixed; /* Evita scrolls fantasmas no mobile */
+        }
+        canvas { display: block; width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; }
+        
+        .overlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; background: #000; text-align: center; padding: 20px; }
+        #login-screen { border: 4px double var(--yellow); }
+        input { background: transparent; border: 1px solid var(--yellow); color: var(--yellow); padding: 12px; font-size: 1rem; text-align: center; margin: 15px; width: 90%; max-width: 300px; }
+        
+        #cutscene-ui { display: none; position: fixed; inset: 0; background: black; z-index: 2000; justify-content: center; align-items: center; flex-direction: column; }
+        .glitch-title { font-size: 3.5rem; color: #ff0000; text-shadow: 2px 2px #550000; animation: glitch 0.15s infinite; font-weight: bold; letter-spacing: 10px; }
+        
+        @keyframes glitch {
+            0% { transform: translate(0); }
+            25% { transform: translate(-4px, 3px) skewX(10deg); }
+            50% { transform: translate(4px, -3px) scaleY(1.1); }
+            75% { transform: translate(-2px, -2px) skewX(-10deg); }
+            100% { transform: translate(0); }
+        }
+
+        #hud { position: fixed; top: 15px; left: 15px; z-index: 10; display: none; pointer-events: none; background: rgba(0,0,0,0.6); padding: 8px; border-left: 3px solid red; font-size: 0.7rem; }
+        #stamina-bar { width: 100px; height: 5px; background: #333; margin-top: 5px; border: 1px solid #555; }
+        #stamina-fill { width: 100%; height: 100%; background: #0f0; transition: width 0.1s; }
+        
+        #msg-box { position: fixed; bottom: 120px; width: 100%; text-align: center; z-index: 20; color: #fff; font-size: 0.8rem; text-shadow: 1px 1px #000; pointer-events: none; display: none;}
+        #left-area { position: fixed; bottom: 0; left: 0; width: 50%; height: 100%; z-index: 3000; display: none; }
+        
+        #flash-overlay { position: fixed; inset: 0; background: white; opacity: 0; pointer-events: none; z-index: 4000; }
+        button { background: var(--yellow); color: #000; border: none; padding: 15px 30px; font-size: 1rem; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div id="flash-overlay"></div>
+    <div id="login-screen" class="overlay">
+        <h1>ASYNC OS v.4.8</h1>
+        <p style="font-size: 0.7rem;">RECUPERANDO REGISTRO DE MEMÓRIA...</p>
+        <input type="text" id="username" placeholder="NOME DO AGENTE" maxlength="15">
+        <button id="btn-login">CONECTAR</button>
+    </div>
+
+    <div id="cutscene-ui">
+        <p id="present-text" style="font-size: 1.2rem; margin-bottom: 20px; opacity: 0; transition: opacity 1.5s;">Emanuel Apresenta</p>
+        <h1 id="backrooms-title" class="glitch-title" style="display: none;">BACKROOMS</h1>
+    </div>
+
+    <div id="hud">
+        ● LIVE <span id="vhs-timer">00:00:00</span><br>
+        AGENTE: <span id="user-display">---</span> | LUZ: <span id="light-status" style="color: #0f0;">ON</span>
+        <div id="stamina-bar"><div id="stamina-fill"></div></div>
+        <div id="objective" style="margin-top: 5px; color: #ceb26b;">OBJETIVO: EXPLORAR</div>
+    </div>
+
+    <div id="msg-box">PORTA TRANCADA - ENCONTRE UMA SAÍDA NAS PROFUNDEZAS</div>
+    <div id="left-area"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
+
+    <script>
+        let moveInput = {x:0, y:0}, isPlaying = false, inCutscene = false;
+        let lastTouchX = 0, lastTouchY = 0, lookTouchId = null;
+        let walkTime = 0, cutsceneTimer = 0, gameStartTime = 0;
+        let pitch = 0, yaw = 0;
+        let hasHadHallucination = false, inHallucination = false;
+
+        const chunks = new Map();
+        const collidableObjects = [];
+        const forestAssets = [];
+        const level1Assets = [];
+        const tileSize = 8;
+        const viewDistance = 2; 
+
+        const scene = new THREE.Scene();
+        const bgColor = 0x1a180a; 
+        scene.background = new THREE.Color(0x87ceeb); 
+        scene.fog = new THREE.Fog(0x87ceeb, 5, 25);
+        
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.01, 100);
+        const cameraGroup = new THREE.Group();
+        cameraGroup.add(camera);
+        scene.add(cameraGroup);
+        cameraGroup.position.set(0, 1.8, 30);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limita para performance
+        document.body.appendChild(renderer.domElement);
+
+        const amb = new THREE.AmbientLight(0xffffff, 0.6); 
+        scene.add(amb);
+
+        const flashlight = new THREE.SpotLight(0xfff9c4, 0, 30, Math.PI/4, 0.5, 1); 
+        camera.add(flashlight);
+        flashlight.position.set(0, 0, 0);
+        flashlight.target.position.set(0, 0, -1);
+        camera.add(flashlight.target);
+
+        const wallMat = new THREE.MeshLambertMaterial({color: 0xceb26b});
+        const floorMat = new THREE.MeshLambertMaterial({color: 0x7a6c43});
+        const ceilMat = new THREE.MeshLambertMaterial({color: 0xdfd49e});
+
+        const exitDoor = new THREE.Group();
+        const frame = new THREE.Mesh(new THREE.BoxGeometry(2, 3.5, 0.2), new THREE.MeshLambertMaterial({color: 0x222222}));
+        const hole = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 3), new THREE.MeshBasicMaterial({color: 0x000000}));
+        hole.position.z = 0.11;
+        exitDoor.add(frame, hole);
+        exitDoor.position.set(0, 1.75, -2);
+        scene.add(exitDoor);
+
+        function handleResize() {
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
+        }
+        window.addEventListener('resize', handleResize);
+        // Tenta corrigir o tamanho repetidamente no início
+        for(let i=0; i<10; i++) setTimeout(handleResize, i * 1000);
+
+        function setupForest() {
+            const groundGeo = new THREE.PlaneGeometry(200, 200);
+            const groundMat = new THREE.MeshLambertMaterial({color: 0x2d5a27}); 
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI/2;
+            scene.add(ground);
+            forestAssets.push(ground);
+
+            for(let i=0; i<80; i++) {
+                const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.4, 10), new THREE.MeshLambertMaterial({color: 0x4a2f1b}));
+                trunk.position.set(Math.random()*60-30, 5, Math.random()*80-40);
+                scene.add(trunk);
+                forestAssets.push(trunk);
+            }
+        }
+
+        function setupLevel1Dev() {
+            const groundGeo = new THREE.PlaneGeometry(300, 300, 32, 32);
+            const groundMat = new THREE.MeshLambertMaterial({color: 0x3d8c40});
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI/2;
+            
+            const pos = groundGeo.attributes.position;
+            for(let i=0; i<pos.count; i++) {
+                let x = pos.getX(i);
+                let y = pos.getY(i);
+                pos.setZ(i, Math.sin(x/5) * Math.cos(y/5) * 2);
+            }
+            scene.add(ground);
+            level1Assets.push(ground);
+
+            const sun = new THREE.DirectionalLight(0xffffff, 1.2);
+            sun.position.set(10, 20, 10);
+            scene.add(sun);
+            level1Assets.push(sun);
+        }
+
+        function createChunk(cx, cz) {
+            const group = new THREE.Group();
+            const f = new THREE.Mesh(new THREE.PlaneGeometry(tileSize, tileSize), floorMat);
+            f.rotation.x = -Math.PI/2;
+            const c = new THREE.Mesh(new THREE.PlaneGeometry(tileSize, tileSize), ceilMat);
+            c.rotation.x = Math.PI/2; c.position.y = 6;
+            group.add(f, c);
+            const seed = Math.abs(Math.sin(cx * 12.9 + cz * 78.2) * 43758.5);
+            if (Math.abs(cx) > 0 || Math.abs(cz) > 0) {
+                if (seed % 1 > 0.7) {
+                    const w = new THREE.Mesh(new THREE.BoxGeometry(tileSize, 6, 1.2), wallMat);
+                    w.position.set(cx * tileSize, 3, cz * tileSize + tileSize/2);
+                    scene.add(w);
+                    collidableObjects.push(w);
+                }
+            }
+            group.position.set(cx * tileSize, 0, cz * tileSize);
+            scene.add(group);
+            return group;
+        }
+
+        function updateChunks() {
+            if(inHallucination) return;
+            const pX = Math.round(cameraGroup.position.x / tileSize);
+            const pZ = Math.round(cameraGroup.position.z / tileSize);
+            for (let x = pX - viewDistance; x <= pX + viewDistance; x++) {
+                for (let z = pZ - viewDistance; z <= pZ + viewDistance; z++) {
+                    const key = `${x},${z}`;
+                    if (!chunks.has(key)) chunks.set(key, createChunk(x, z));
+                }
+            }
+        }
+
+        function checkCollision(newPos) {
+            if(inHallucination) return false;
+            const playerHitbox = new THREE.Box3().setFromCenterAndSize(newPos, new THREE.Vector3(0.7, 2, 0.7));
+            for (let obj of collidableObjects) {
+                const wallBox = new THREE.Box3().setFromObject(obj);
+                if (wallBox.intersectsBox(playerHitbox)) return true;
+            }
+            return false;
+        }
+
+        function triggerHallucination() {
+            hasHadHallucination = true;
+            inHallucination = true;
+            moveInput = {x:0, y:0};
+
+            let fallAnim = setInterval(() => {
+                camera.rotation.z += 0.05;
+                cameraGroup.position.y -= 0.05;
+                if(cameraGroup.position.y <= 0.4) {
+                    clearInterval(fallAnim);
+                    document.getElementById('flash-overlay').style.transition = "opacity 1.5s";
+                    document.getElementById('flash-overlay').style.opacity = "1";
+                    
+                    setTimeout(() => {
+                        chunks.forEach(c => scene.remove(c));
+                        chunks.clear();
+                        collidableObjects.length = 0;
+                        exitDoor.visible = false;
+                        flashlight.intensity = 0;
+                        
+                        scene.background = new THREE.Color(0x87ceeb);
+                        scene.fog = new THREE.Fog(0x87ceeb, 10, 50);
+                        amb.intensity = 1.0;
+                        
+                        setupLevel1Dev();
+                        
+                        cameraGroup.position.set(0, 1.8, 0);
+                        camera.rotation.set(0,0,0);
+                        document.getElementById('objective').innerText = "NÍVEL 1 ESTER EGGS (DEV)";
+                        document.getElementById('objective').style.color = "#0f0";
+                        document.getElementById('light-status').innerText = "OFF";
+                        
+                        document.getElementById('flash-overlay').style.opacity = "0";
+                        inHallucination = false;
+                        setTimeout(returnToBackrooms, 30000);
+                    }, 1500);
+                }
+            }, 30);
+        }
+
+        function returnToBackrooms() {
+            inHallucination = true;
+            document.getElementById('flash-overlay').style.opacity = "1";
+            
+            setTimeout(() => {
+                level1Assets.forEach(a => scene.remove(a));
+                level1Assets.length = 0;
+                
+                scene.background = new THREE.Color(bgColor);
+                scene.fog = new THREE.Fog(bgColor, 1, 18);
+                amb.intensity = 0.12;
+                flashlight.intensity = 35;
+                
+                cameraGroup.position.set(0, 1.8, 0);
+                exitDoor.visible = true;
+                document.getElementById('objective').innerText = "OBJETIVO: EXPLORAR";
+                document.getElementById('objective').style.color = "#ceb26b";
+                document.getElementById('light-status').innerText = "ON";
+
+                document.getElementById('flash-overlay').style.opacity = "0";
+                inHallucination = false;
+            }, 2000);
+        }
+
+        window.addEventListener('touchstart', e => {
+            if(!isPlaying || inHallucination) return;
+            for(let i=0; i<e.changedTouches.length; i++) {
+                const t = e.changedTouches[i];
+                if(t.pageX > window.innerWidth / 2) { 
+                    lookTouchId = t.identifier; 
+                    lastTouchX = t.pageX; lastTouchY = t.pageY;
+                }
+            }
+        });
+
+        window.addEventListener('touchmove', e => {
+            if(!isPlaying || inCutscene || inHallucination) return;
+            for(let i=0; i<e.touches.length; i++) {
+                const t = e.touches[i];
+                if(t.identifier === lookTouchId) {
+                    yaw -= (t.pageX - lastTouchX) * 0.005;
+                    pitch -= (t.pageY - lastTouchY) * 0.005;
+                    pitch = Math.max(-Math.PI/2.2, Math.min(Math.PI/2.2, pitch));
+                    cameraGroup.rotation.y = yaw;
+                    camera.rotation.x = pitch;
+                    lastTouchX = t.pageX; lastTouchY = t.pageY;
+                }
+            }
+        });
+
+        document.getElementById('btn-login').onclick = () => {
+            document.getElementById('user-display').innerText = (document.getElementById('username').value || "AGENTE");
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('left-area').style.display = 'block';
+            initJoystick();
+            setupForest();
+            handleResize(); // Garante o tamanho certo ao começar
+            exitDoor.visible = false;
+            inCutscene = true;
+            isPlaying = true;
+            cutsceneTimer = Date.now();
+        };
+
+        function startActualGame() {
+            inCutscene = false;
+            gameStartTime = Date.now();
+            forestAssets.forEach(asset => scene.remove(asset));
+            document.getElementById('cutscene-ui').style.display = 'none';
+            document.getElementById('hud').style.display = 'block';
+            scene.background = new THREE.Color(bgColor);
+            scene.fog.color.set(bgColor);
+            scene.fog.near = 1; scene.fog.far = 18;
+            amb.intensity = 0.12; 
+            flashlight.intensity = 35; 
+            cameraGroup.position.set(0, 1.8, 0);
+            exitDoor.visible = true;
+            handleResize();
+        }
+
+        function initJoystick() {
+            nipplejs.create({ 
+                zone: document.getElementById('left-area'), 
+                mode: 'static', 
+                position: {left: '80px', bottom: '80px'}, 
+                color: 'white', 
+                size: 90 
+            }).on('move', (e, d) => { 
+                if(!inCutscene && !inHallucination) moveInput = d.vector; 
+            }).on('end', () => { 
+                moveInput = {x:0, y:0}; 
+            });
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if(!isPlaying) return;
+
+            if(inCutscene) {
+                let elapsed = (Date.now() - cutsceneTimer) / 1000;
+                if(elapsed < 4.5) {
+                    cameraGroup.position.z -= 0.08;
+                    camera.position.y = Math.sin(elapsed * 12) * 0.08;
+                } else if(elapsed < 5.2) {
+                    camera.rotation.x -= 0.18;
+                    cameraGroup.position.y -= 0.15;
+                } else if(elapsed < 11) {
+                    document.getElementById('cutscene-ui').style.display = 'flex';
+                    if(elapsed > 6) document.getElementById('present-text').style.opacity = 1;
+                    if(elapsed > 8.5) {
+                        document.getElementById('present-text').style.display = 'none';
+                        document.getElementById('backrooms-title').style.display = 'block';
+                    }
+                } else {
+                    startActualGame();
+                }
+            } else {
+                if(!hasHadHallucination && (Date.now() - gameStartTime) > 20000) {
+                    triggerHallucination();
+                }
+
+                updateChunks();
+                const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(cameraGroup.quaternion);
+                const side = new THREE.Vector3(1, 0, 0).applyQuaternion(cameraGroup.quaternion);
+                const nextPos = cameraGroup.position.clone();
+                nextPos.x += (dir.x * moveInput.y * 0.18) + (side.x * moveInput.x * 0.18);
+                nextPos.z += (dir.z * moveInput.y * 0.18) + (side.z * moveInput.x * 0.18);
+
+                if (!checkCollision(nextPos)) {
+                    cameraGroup.position.x = nextPos.x;
+                    cameraGroup.position.z = nextPos.z;
+                }
+
+                if (Math.abs(moveInput.x) > 0.1 || Math.abs(moveInput.y) > 0.1) {
+                    walkTime += 0.15;
+                    camera.position.y = Math.sin(walkTime) * 0.04;
+                }
+            }
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>
