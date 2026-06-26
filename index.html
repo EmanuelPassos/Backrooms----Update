@@ -1,13 +1,13 @@
 ```html
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-PT">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Backrooms -- Versão Final</title>
-    <!-- Tailwind CSS para UI rápida e bonita -->
+    <!-- Tailwind CSS para design ágil e responsivo da interface -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Three.js para o motor 3D -->
+    <!-- Biblioteca gráfica Three.js para o motor de renderização 3D -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&display=swap');
@@ -25,74 +25,71 @@
             height: 100vh;
         }
 
-        /* Efeito de estática de TV VHS no fundo */
+        /* Efeito de estática analógica VHS em segundo plano */
         .vhs-noise {
             background: radial-gradient(circle, rgba(0,0,0,0) 0%, rgba(0,0,0,0.8) 100%),
-                        url('data:image/svg+xml,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)" opacity="0.15"/%3E%3C/svg%3E');
+                        url('data:image/svg+xml,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)" opacity="0.12"/%3E%3C/svg%3E');
         }
 
-        /* Varredura CRT */
+        /* Varredura clássica CRT de ecrãs de tubo */
         .crt-lines::before {
             content: " ";
             display: block;
             position: absolute;
             top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.05), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.05));
             z-index: 999;
             background-size: 100% 4px, 6px 100%;
             pointer-events: none;
         }
 
-        /* Forçar modo paisagem no celular */
+        /* Bloqueio visual para forçar o utilizador a rodar o ecrã no telemóvel */
         @media screen and (orientation: portrait) {
             #portrait-warning {
                 display: flex !important;
             }
-            #game-interface, #ui-container {
+            #game-hud, #ui-container {
                 display: none !important;
             }
         }
 
-        /* Estilo do Joystick virtual */
+        /* Estilos do comando analógico virtual */
         .joystick-zone {
-            width: 150px;
-            height: 150px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 2px solid rgba(255, 255, 255, 0.2);
+            width: 130px;
+            height: 130px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 2px solid rgba(255, 255, 255, 0.15);
             border-radius: 50%;
             touch-action: none;
         }
         .joystick-handle {
-            width: 60px;
-            height: 60px;
-            background: rgba(255, 255, 255, 0.3);
-            border: 2px solid rgba(255, 255, 255, 0.6);
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.25);
+            border: 2px solid rgba(255, 255, 255, 0.5);
             border-radius: 50%;
-            transition: background 0.2s;
-        }
-        .joystick-handle:active {
-            background: rgba(255, 255, 255, 0.5);
+            transition: background 0.1s;
         }
     </style>
 </head>
 <body class="crt-lines bg-black text-yellow-500 overflow-hidden select-none">
 
-    <!-- Aviso de Orientação Paisagem -->
+    <!-- Alerta de Orientação Vertical (Modo Retrato) -->
     <div id="portrait-warning" class="hidden fixed inset-0 bg-neutral-950 z-[9999] flex-col justify-center items-center text-center px-6">
         <svg class="w-16 h-16 mb-4 animate-bounce text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
         </svg>
-        <h2 class="text-xl font-bold mb-2">Por favor, deite o seu celular</h2>
-        <p class="text-sm text-neutral-400">Este jogo foi feito para ser jogado em Modo Paisagem (Tela Deitada).</p>
+        <h2 class="text-xl font-bold mb-2">POR FAVOR, RODE O SEU TELEMÓVEL</h2>
+        <p class="text-sm text-neutral-400">Este jogo foi desenhado para ser jogado em Modo Paisagem (Ecrã na Horizontal).</p>
     </div>
 
-    <!-- Container do Jogo 3D -->
+    <!-- Área de Renderização do Canvas 3D -->
     <div id="canvas-container" class="absolute inset-0 w-full h-full z-0"></div>
 
-    <!-- UI E MENUS PRINCIPAIS -->
+    <!-- Contentor de Interfaces Gráficas (UI) -->
     <div id="ui-container" class="absolute inset-0 z-10 w-full h-full pointer-events-none flex flex-col justify-between">
         
-        <!-- ================= INTRO SCENE ================= -->
+        <!-- ================= INTRODUÇÃO CINEMÁTICA ================= -->
         <div id="intro-screen" class="absolute inset-0 bg-black z-50 flex items-center justify-center pointer-events-auto transition-opacity duration-1000">
             <div class="text-center">
                 <p id="intro-presents" class="text-lg md:text-2xl tracking-[0.25em] text-neutral-500 opacity-0 transition-opacity duration-1000 mb-2">EMANUEL APRESENTA</p>
@@ -104,18 +101,17 @@
         <!-- ================= MENU PRINCIPAL ================= -->
         <div id="main-menu" class="absolute inset-0 bg-neutral-950/90 vhs-noise z-40 flex flex-col items-center justify-center pointer-events-auto transition-opacity duration-500">
             <div class="text-center mb-8">
-                <p class="text-xs tracking-widest text-neutral-500 uppercase">A Experiência Liminal</p>
-                <h1 class="text-4xl md:text-6xl font-extrabold text-yellow-500 tracking-wider drop-shadow-[0_5px_5px_rgba(0,0,0,0.8)] animate-pulse">BACKROOMS</h1>
+                <p class="text-[10px] tracking-widest text-neutral-500 uppercase">A Experiência Liminal</p>
+                <h1 class="text-4xl md:text-6xl font-extrabold text-yellow-500 tracking-wider drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)] animate-pulse">BACKROOMS</h1>
                 <p class="text-xs text-yellow-600/80 tracking-widest mt-1">-- VERSÃO FINAL --</p>
             </div>
 
-            <!-- Botões do Menu -->
             <div class="flex flex-col gap-3 w-64 md:w-80">
-                <button onclick="startGame()" class="w-full bg-yellow-600/20 hover:bg-yellow-600/40 border border-yellow-500/50 hover:border-yellow-500 text-yellow-500 font-bold py-3 px-6 rounded transition duration-200 uppercase tracking-widest text-sm focus:outline-none">
+                <button onclick="startGame()" class="w-full bg-yellow-600/20 hover:bg-yellow-600/40 border border-yellow-500/50 hover:border-yellow-500 text-yellow-500 font-bold py-3 px-6 rounded transition duration-200 uppercase tracking-widest text-xs focus:outline-none">
                     Jogar
                 </button>
                 <button onclick="openMenu('settings-menu')" class="w-full bg-neutral-900/60 hover:bg-neutral-800 border border-neutral-700 hover:border-neutral-500 text-neutral-300 py-2.5 px-6 rounded transition duration-200 tracking-widest text-xs focus:outline-none">
-                    Configurações
+                    Definições
                 </button>
                 <button onclick="openMenu('credits-menu')" class="w-full bg-neutral-900/60 hover:bg-neutral-800 border border-neutral-700 hover:border-neutral-500 text-neutral-400 py-2.5 px-6 rounded transition duration-200 tracking-widest text-xs focus:outline-none">
                     Créditos
@@ -123,35 +119,35 @@
             </div>
 
             <div class="absolute bottom-4 text-center">
-                <p class="text-[9px] text-neutral-600 tracking-wider">Criado por Emanuel &bull; Feito em HTML5 e Three.js</p>
+                <p class="text-[9px] text-neutral-600 tracking-wider">Criado por Emanuel &bull; Desenvolvido em HTML5 e Three.js</p>
             </div>
         </div>
 
-        <!-- ================= MENU CONFIGURAÇÕES ================= -->
+        <!-- ================= MENU DEFINIÇÕES ================= -->
         <div id="settings-menu" class="hidden absolute inset-0 bg-neutral-950/95 vhs-noise z-40 flex flex-col items-center justify-center pointer-events-auto">
             <div class="w-11/12 max-w-xl bg-neutral-900/80 border border-yellow-600/30 p-6 rounded-lg shadow-2xl">
-                <h2 class="text-xl font-bold text-yellow-500 tracking-wider mb-6 text-center border-b border-yellow-500/20 pb-3">CONFIGURAÇÕES</h2>
+                <h2 class="text-lg font-bold text-yellow-500 tracking-wider mb-6 text-center border-b border-yellow-500/20 pb-3">DEFINIÇÕES</h2>
                 
                 <div class="space-y-4">
-                    <!-- Sensibilidade -->
+                    <!-- Sensibilidade da Câmara -->
                     <div class="flex flex-col gap-1">
                         <div class="flex justify-between text-xs text-neutral-400">
-                            <span>Sensibilidade da Câmera</span>
+                            <span>Sensibilidade da Câmara</span>
                             <span id="val-sens">1.5</span>
                         </div>
                         <input id="cfg-sens" type="range" min="0.5" max="4.0" step="0.1" value="1.5" oninput="updateConfig('sens', this.value)" class="w-full accent-yellow-500 bg-neutral-800 h-1.5 rounded-lg appearance-none cursor-pointer">
                     </div>
 
-                    <!-- Distância de Renderização (Fog) -->
+                    <!-- Densidade do Nevoeiro -->
                     <div class="flex flex-col gap-1">
                         <div class="flex justify-between text-xs text-neutral-400">
-                            <span>Densidade da Neblina (Renderização)</span>
+                            <span>Densidade do Nevoeiro (Renderização)</span>
                             <span id="val-fog">Média</span>
                         </div>
                         <input id="cfg-fog" type="range" min="1" max="3" step="1" value="2" oninput="updateConfig('fog', this.value)" class="w-full accent-yellow-500 bg-neutral-800 h-1.5 rounded-lg appearance-none cursor-pointer">
                     </div>
 
-                    <!-- Volume de Som -->
+                    <!-- Volume Geral -->
                     <div class="flex flex-col gap-1">
                         <div class="flex justify-between text-xs text-neutral-400">
                             <span>Volume Geral (Zumbido / Sons)</span>
@@ -172,7 +168,7 @@
                 </div>
 
                 <div class="mt-8 flex justify-center">
-                    <button onclick="closeMenu('settings-menu')" class="bg-yellow-600/10 hover:bg-yellow-600/30 border border-yellow-500/30 hover:border-yellow-500 text-yellow-500 font-bold py-2 px-8 rounded text-xs tracking-wider transition-all">
+                    <button onclick="closeMenu('settings-menu')" class="bg-yellow-600/10 hover:bg-yellow-600/30 border border-yellow-500/30 hover:border-yellow-500 text-yellow-500 font-bold py-2 px-8 rounded text-[10px] tracking-wider transition-all">
                         VOLTAR AO MENU
                     </button>
                 </div>
@@ -182,70 +178,68 @@
         <!-- ================= MENU CRÉDITOS ================= -->
         <div id="credits-menu" class="hidden absolute inset-0 bg-neutral-950/95 vhs-noise z-40 flex flex-col items-center justify-center pointer-events-auto">
             <div class="w-11/12 max-w-md bg-neutral-900/80 border border-yellow-600/30 p-6 rounded-lg shadow-2xl text-center">
-                <h2 class="text-xl font-bold text-yellow-500 tracking-wider mb-4 border-b border-yellow-500/20 pb-3">CRÉDITOS</h2>
+                <h2 class="text-lg font-bold text-yellow-500 tracking-wider mb-4 border-b border-yellow-500/20 pb-3">CRÉDITOS</h2>
                 <div class="space-y-4 text-xs text-neutral-300 leading-relaxed text-justify">
-                    <p>Obrigado por jogar <span class="text-yellow-500 font-bold">Backrooms -- Versão Final</span>!</p>
-                    <p>Este jogo é um tributo ao famoso fenômeno da internet ("The Backrooms" Level 0) criado originalmente por Kane Pixels e pela comunidade Creepypasta de terror analógico.</p>
+                    <p>Obrigado por testar o projeto <span class="text-yellow-500 font-bold">Backrooms -- Versão Final</span>!</p>
+                    <p>Este simulador procura reproduzir o ambiente liminal do Nível 0 das Backrooms, com foco no suspense visual e áudio espacial.</p>
                     <p class="font-bold text-yellow-500/95">Desenvolvimento:</p>
                     <ul class="list-disc pl-5 space-y-1 text-neutral-400">
-                        <li>Direção de Arte e Conceito: <span class="text-neutral-200 font-bold">Emanuel</span></li>
-                        <li>Motor Gráfico: Three.js (Renderização WebGL 3D)</li>
-                        <li>Áudio Sintetizado: Web Audio API</li>
+                        <li>Criação artística e Conceito: <span class="text-neutral-200 font-bold">Emanuel</span></li>
+                        <li>Motor Visual: Three.js</li>
+                        <li>Som de Atmosfera: Web Audio API Sintetizada</li>
                     </ul>
-                    <p class="text-[10px] text-neutral-500 text-center italic mt-2">"Se você não tomar cuidado e sair da realidade nas áreas erradas..."</p>
+                    <p class="text-[9px] text-neutral-500 text-center italic mt-2">"Se não tiveres cuidado e saíres da realidade nos sítios errados..."</p>
                 </div>
                 <div class="mt-6">
-                    <button onclick="closeMenu('credits-menu')" class="bg-yellow-600/10 hover:bg-yellow-600/30 border border-yellow-500/30 hover:border-yellow-500 text-yellow-500 font-bold py-2 px-8 rounded text-xs tracking-wider transition-all">
+                    <button onclick="closeMenu('credits-menu')" class="bg-yellow-600/10 hover:bg-yellow-600/30 border border-yellow-500/30 hover:border-yellow-500 text-yellow-500 font-bold py-2 px-8 rounded text-[10px] tracking-wider transition-all">
                         FECHAR
                     </button>
                 </div>
             </div>
         </div>
 
-        <!-- ================= HUD DO JOGO EM EXECUÇÃO ================= -->
+        <!-- ================= INTERFACE EM JOGO (HUD) ================= -->
         <div id="game-hud" class="hidden absolute inset-0 w-full h-full pointer-events-none flex flex-col justify-between p-4">
             
-            <!-- Linha do Topo (Bateria, Lanterna, Botão de Pausa) -->
+            <!-- Linha Superior do Ecrã -->
             <div class="flex justify-between items-start w-full">
-                <!-- Status da Bateria / Lanterna -->
-                <div class="flex flex-col bg-black/40 border border-neutral-800 p-2 rounded text-[10px] text-neutral-300 tracking-widest backdrop-blur-xs">
+                <!-- Status da Câmara VHS -->
+                <div class="flex flex-col bg-black/40 border border-neutral-800 p-2 rounded text-[9px] text-neutral-300 tracking-widest backdrop-blur-xs">
                     <div class="flex items-center gap-1.5">
                         <span class="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-ping"></span>
-                        <span>GRAVANDO... [REC]</span>
+                        <span>A GRAVAR... [REC]</span>
                     </div>
                     <div class="mt-1 flex items-center gap-1">
                         <span>BATERIA:</span>
-                        <div class="w-12 h-3 border border-neutral-500 rounded p-0.5 flex">
+                        <div class="w-12 h-2.5 border border-neutral-500 rounded p-0.5 flex">
                             <div id="hud-battery" class="h-full bg-yellow-500 w-full transition-all duration-1000"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Botão Menu de Pausa -->
-                <button onclick="pauseGame()" class="pointer-events-auto bg-black/50 border border-yellow-500/30 hover:bg-yellow-500/20 text-yellow-500 text-xs px-3 py-1.5 rounded tracking-widest">
+                <!-- Botão de Pausa -->
+                <button onclick="pauseGame()" class="pointer-events-auto bg-black/50 border border-yellow-500/30 hover:bg-yellow-500/20 text-yellow-500 text-[10px] px-3 py-1.5 rounded tracking-widest">
                     PAUSAR
                 </button>
             </div>
 
-            <!-- Centro da Tela - Mira Discreta -->
+            <!-- Centro do Ecrã: Ponto de Focagem -->
             <div class="absolute inset-0 flex items-center justify-center opacity-30 pointer-events-none">
                 <div class="w-1 h-1 bg-white rounded-full"></div>
             </div>
 
-            <!-- Linha Inferior - Joysticks e Botões de Ação -->
+            <!-- Comandos de Toque Inferiores -->
             <div class="flex justify-between items-end w-full pb-2 px-2">
-                <!-- Joystick de Movimento (Esquerdo) -->
+                <!-- Joystick Direcional (Lado Esquerdo) -->
                 <div class="pointer-events-auto relative">
                     <div id="joystick" class="joystick-zone flex items-center justify-center select-none">
-                        <div id="joystick-stick" class="joystick-handle shadow-lg transform translate-x-0 translate-y-0"></div>
+                        <div id="joystick-stick" class="joystick-handle shadow-lg"></div>
                     </div>
                 </div>
 
-                <!-- Botão de Lanterna (Direito) -->
-                <div class="pointer-events-auto flex flex-col items-center gap-4">
-                    <!-- Botão Flashlight -->
+                <!-- Lado Direito: Botão da Lanterna -->
+                <div class="pointer-events-auto flex flex-col items-center">
                     <button id="btn-flashlight" onclick="toggleFlashlight()" class="w-14 h-14 bg-yellow-500/20 hover:bg-yellow-500/40 border-2 border-yellow-500 text-yellow-500 rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-all">
-                        <!-- Ícone de Lanterna -->
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
                         </svg>
@@ -254,17 +248,17 @@
             </div>
         </div>
 
-        <!-- ================= TELA DE PAUSA ================= -->
+        <!-- ================= ECRÃ DE PAUSA ================= -->
         <div id="pause-screen" class="hidden absolute inset-0 bg-neutral-950/90 z-30 flex flex-col items-center justify-center pointer-events-auto">
-            <h2 class="text-3xl font-extrabold text-yellow-500 tracking-wider mb-6 animate-pulse">JOGO PAUSADO</h2>
+            <h2 class="text-2xl font-extrabold text-yellow-500 tracking-wider mb-6 animate-pulse">JOGO PAUSADO</h2>
             <div class="flex flex-col gap-3 w-64">
-                <button onclick="resumeGame()" class="w-full bg-yellow-600/20 hover:bg-yellow-600/40 border border-yellow-500/50 hover:border-yellow-500 text-yellow-500 font-bold py-3 px-6 rounded transition duration-200 uppercase tracking-widest text-xs">
-                    Continuar Explorando
+                <button onclick="resumeGame()" class="w-full bg-yellow-600/20 hover:bg-yellow-600/40 border border-yellow-500/50 hover:border-yellow-500 text-yellow-500 font-bold py-3 px-6 rounded transition duration-200 uppercase tracking-widest text-[10px]">
+                    Continuar a Explorar
                 </button>
-                <button onclick="openMenu('settings-menu')" class="w-full bg-neutral-900/60 hover:bg-neutral-800 border border-neutral-700 text-neutral-300 py-2.5 px-6 rounded transition duration-200 tracking-widest text-xs">
-                    Configurações
+                <button onclick="openMenu('settings-menu')" class="w-full bg-neutral-900/60 hover:bg-neutral-800 border border-neutral-700 text-neutral-300 py-2.5 px-6 rounded transition duration-200 tracking-widest text-[10px]">
+                    Definições
                 </button>
-                <button onclick="exitToMenu()" class="w-full bg-red-950/20 hover:bg-red-950/40 border border-red-500/30 hover:border-red-500 text-red-400 py-2.5 px-6 rounded transition duration-200 tracking-widest text-xs">
+                <button onclick="exitToMenu()" class="w-full bg-red-950/20 hover:bg-red-950/40 border border-red-500/30 hover:border-red-500 text-red-400 py-2.5 px-6 rounded transition duration-200 tracking-widest text-[10px]">
                     Sair do Jogo
                 </button>
             </div>
@@ -272,23 +266,23 @@
 
     </div>
 
-    <!-- SCRIPT PRINCIPAL DO JOGO -->
+    <!-- CÓDIGO DO MOTOR DO JOGO -->
     <script>
-        // CONFIGURAÇÕES DO JOGO
+        // Parâmetros de Configuração
         let config = {
             sensitivity: 1.5,
-            fogDensity: 0.15, // Média por padrão
+            fogDensity: 0.15,
             volume: 0.6,
-            graphics: 'medium' // 'low', 'medium', 'high'
+            graphics: 'medium'
         };
 
-        // ESTADO GLOBAL DO JOGO
+        // Estado do Jogo
         let gameStarted = false;
         let isPaused = false;
         let batteryLevel = 100;
         let flashlightOn = true;
 
-        // ELEMENTOS DOM
+        // Elementos Domésticos da Interface
         const uiContainer = document.getElementById('ui-container');
         const introScreen = document.getElementById('intro-screen');
         const mainMenu = document.getElementById('main-menu');
@@ -299,36 +293,35 @@
         const btnFlashlight = document.getElementById('btn-flashlight');
         const batteryBar = document.getElementById('hud-battery');
 
-        // AUDIO SYNTHESIS (Web Audio API)
+        // Síntese de Áudio com Web Audio API
         let audioCtx = null;
         let ambientHumNode = null;
         let ambientGainNode = null;
         let footstepTimer = 0;
 
-        // INICIALIZADOR DE ÁUDIO PROCEDURAL
+        // Inicialização de áudio para evitar bloqueios do navegador
         function initAudio() {
             if (audioCtx) return;
             try {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 
-                // Criação do som ambiente (Zumbido das fluorescentes das Backrooms)
-                // O zumbido é formado por uma frequência fundamental baixa (60Hz) e harmônicas
+                // Criação do som característico das lâmpadas fluorescentes das Backrooms
                 const osc1 = audioCtx.createOscillator();
                 const osc2 = audioCtx.createOscillator();
                 const filter = audioCtx.createBiquadFilter();
                 ambientGainNode = audioCtx.createGain();
 
                 osc1.type = 'sawtooth';
-                osc1.frequency.setValueAtTime(60, audioCtx.currentTime); // Frequência elétrica de rede elétrica (60Hz)
+                osc1.frequency.setValueAtTime(60, audioCtx.currentTime); 
 
                 osc2.type = 'triangle';
-                osc2.frequency.setValueAtTime(120, audioCtx.currentTime); // Dobro da fundamental
+                osc2.frequency.setValueAtTime(120, audioCtx.currentTime); 
 
                 filter.type = 'bandpass';
-                filter.Q.value = 1.2;
-                filter.frequency.value = 1000; // Ruído estático agudo da lâmpada
+                filter.Q.value = 1.0;
+                filter.frequency.value = 950; 
 
-                ambientGainNode.gain.setValueAtTime(config.volume * 0.12, audioCtx.currentTime);
+                ambientGainNode.gain.setValueAtTime(config.volume * 0.1, audioCtx.currentTime);
 
                 osc1.connect(ambientGainNode);
                 osc2.connect(filter);
@@ -337,4 +330,15 @@
                 ambientGainNode.connect(audioCtx.destination);
 
                 osc1.start();
-          
+                osc2.start();
+
+                ambientHumNode = [osc1, osc2];
+            } catch (e) {
+                console.warn("Falta de suporte para a Web Audio API neste navegador.", e);
+            }
+        }
+
+        function playSoundClick() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+ 
