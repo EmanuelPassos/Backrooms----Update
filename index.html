@@ -1,196 +1,340 @@
+```html
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>BACKROOMS: EMANUEL - REMAKE LITE</title>
+    <title>Backrooms -- Versão Final</title>
+    <!-- Tailwind CSS para UI rápida e bonita -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js para o motor 3D -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        :root { --y: #ceb26b; }
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Courier New', monospace; color: var(--y); }
-        canvas { width: 100%; height: 100%; outline: none; touch-action: none; display: none; }
-        #ui-master { position: fixed; inset: 0; z-index: 500; display: flex; align-items: center; justify-content: center; background: #000; }
-        .glitch-title { font-size: 2.8rem; font-weight: 900; letter-spacing: 12px; animation: g 0.2s infinite; text-shadow: 2px 0 #f00, -2px 0 #00f; text-align: center; }
-        @keyframes g { 0%, 100% { transform: translate(0); } 33% { transform: translate(-2px, 1px); } 66% { transform: translate(2px, -1px); } }
-        .btn-play { margin-top: 40px; padding: 18px 60px; background: transparent; border: 1px solid var(--y); color: var(--y); cursor: pointer; text-transform: uppercase; letter-spacing: 4px; font-weight: bold; }
-        .pix { font-size: 0.7rem; opacity: 0.5; margin-top: 50px; letter-spacing: 2px; }
-        #intro { position: fixed; inset: 0; z-index: 600; background: #000; display: none; align-items: center; justify-content: center; text-align: center; }
-        .t { font-size: 1.5rem; letter-spacing: 6px; opacity: 0; transition: 1.5s ease; }
-        #hud { position: fixed; top: 25px; left: 25px; z-index: 100; display: none; font-size: 0.8rem; opacity: 0.7; pointer-events: none; }
-        #joy-zone { position: fixed; bottom: 60px; left: 60px; width: 120px; height: 120px; z-index: 1000; display: none; touch-action: none; border: 2px solid rgba(206,178,107,0.3); border-radius: 50%; }
-        #joy-knob { width: 50px; height: 50px; background: var(--y); border-radius: 50%; position: absolute; top: 35px; left: 35px; opacity: 0.6; pointer-events: none; }
+        @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+        
+        body {
+            font-family: 'Courier Prime', monospace;
+            background-color: #000;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Efeito de estática de TV VHS no fundo */
+        .vhs-noise {
+            background: radial-gradient(circle, rgba(0,0,0,0) 0%, rgba(0,0,0,0.8) 100%),
+                        url('data:image/svg+xml,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)" opacity="0.15"/%3E%3C/svg%3E');
+        }
+
+        /* Varredura CRT */
+        .crt-lines::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 999;
+            background-size: 100% 4px, 6px 100%;
+            pointer-events: none;
+        }
+
+        /* Forçar modo paisagem no celular */
+        @media screen and (orientation: portrait) {
+            #portrait-warning {
+                display: flex !important;
+            }
+            #game-interface, #ui-container {
+                display: none !important;
+            }
+        }
+
+        /* Estilo do Joystick virtual */
+        .joystick-zone {
+            width: 150px;
+            height: 150px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            touch-action: none;
+        }
+        .joystick-handle {
+            width: 60px;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            transition: background 0.2s;
+        }
+        .joystick-handle:active {
+            background: rgba(255, 255, 255, 0.5);
+        }
     </style>
 </head>
-<body>
+<body class="crt-lines bg-black text-yellow-500 overflow-hidden select-none">
 
-    <div id="ui-master">
-        <div style="text-align:center;">
-            <div class="glitch-title">BACKROOMS</div>
-            <button class="btn-play" onclick="iniciarTudo()">INICIAR</button>
-            <div class="pix">APOIE O PROJETO (PIX): 16988245522</div>
-        </div>
+    <!-- Aviso de Orientação Paisagem -->
+    <div id="portrait-warning" class="hidden fixed inset-0 bg-neutral-950 z-[9999] flex-col justify-center items-center text-center px-6">
+        <svg class="w-16 h-16 mb-4 animate-bounce text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+        </svg>
+        <h2 class="text-xl font-bold mb-2">Por favor, deite o seu celular</h2>
+        <p class="text-sm text-neutral-400">Este jogo foi feito para ser jogado em Modo Paisagem (Tela Deitada).</p>
     </div>
 
-    <div id="intro"><div id="msg" class="t"></div></div>
-    <div id="hud">● REC | USER: EMANUEL<br>FPS: 60 FLUID | LANTERNA: ON</div>
-    <div id="joy-zone"><div id="joy-knob"></div></div>
-    <canvas id="renderCanvas"></canvas>
+    <!-- Container do Jogo 3D -->
+    <div id="canvas-container" class="absolute inset-0 w-full h-full z-0"></div>
 
-    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <!-- UI E MENUS PRINCIPAIS -->
+    <div id="ui-container" class="absolute inset-0 z-10 w-full h-full pointer-events-none flex flex-col justify-between">
+        
+        <!-- ================= INTRO SCENE ================= -->
+        <div id="intro-screen" class="absolute inset-0 bg-black z-50 flex items-center justify-center pointer-events-auto transition-opacity duration-1000">
+            <div class="text-center">
+                <p id="intro-presents" class="text-lg md:text-2xl tracking-[0.25em] text-neutral-500 opacity-0 transition-opacity duration-1000 mb-2">EMANUEL APRESENTA</p>
+                <h1 id="intro-title" class="text-2xl md:text-5xl font-bold tracking-[0.4em] text-yellow-500 opacity-0 transition-opacity duration-1500">BACKROOMS</h1>
+                <p id="intro-subtitle" class="text-sm md:text-lg tracking-wider text-yellow-600/70 mt-2 opacity-0 transition-opacity duration-1000">-- VERSÃO FINAL --</p>
+            </div>
+        </div>
 
+        <!-- ================= MENU PRINCIPAL ================= -->
+        <div id="main-menu" class="absolute inset-0 bg-neutral-950/90 vhs-noise z-40 flex flex-col items-center justify-center pointer-events-auto transition-opacity duration-500">
+            <div class="text-center mb-8">
+                <p class="text-xs tracking-widest text-neutral-500 uppercase">A Experiência Liminal</p>
+                <h1 class="text-4xl md:text-6xl font-extrabold text-yellow-500 tracking-wider drop-shadow-[0_5px_5px_rgba(0,0,0,0.8)] animate-pulse">BACKROOMS</h1>
+                <p class="text-xs text-yellow-600/80 tracking-widest mt-1">-- VERSÃO FINAL --</p>
+            </div>
+
+            <!-- Botões do Menu -->
+            <div class="flex flex-col gap-3 w-64 md:w-80">
+                <button onclick="startGame()" class="w-full bg-yellow-600/20 hover:bg-yellow-600/40 border border-yellow-500/50 hover:border-yellow-500 text-yellow-500 font-bold py-3 px-6 rounded transition duration-200 uppercase tracking-widest text-sm focus:outline-none">
+                    Jogar
+                </button>
+                <button onclick="openMenu('settings-menu')" class="w-full bg-neutral-900/60 hover:bg-neutral-800 border border-neutral-700 hover:border-neutral-500 text-neutral-300 py-2.5 px-6 rounded transition duration-200 tracking-widest text-xs focus:outline-none">
+                    Configurações
+                </button>
+                <button onclick="openMenu('credits-menu')" class="w-full bg-neutral-900/60 hover:bg-neutral-800 border border-neutral-700 hover:border-neutral-500 text-neutral-400 py-2.5 px-6 rounded transition duration-200 tracking-widest text-xs focus:outline-none">
+                    Créditos
+                </button>
+            </div>
+
+            <div class="absolute bottom-4 text-center">
+                <p class="text-[9px] text-neutral-600 tracking-wider">Criado por Emanuel &bull; Feito em HTML5 e Three.js</p>
+            </div>
+        </div>
+
+        <!-- ================= MENU CONFIGURAÇÕES ================= -->
+        <div id="settings-menu" class="hidden absolute inset-0 bg-neutral-950/95 vhs-noise z-40 flex flex-col items-center justify-center pointer-events-auto">
+            <div class="w-11/12 max-w-xl bg-neutral-900/80 border border-yellow-600/30 p-6 rounded-lg shadow-2xl">
+                <h2 class="text-xl font-bold text-yellow-500 tracking-wider mb-6 text-center border-b border-yellow-500/20 pb-3">CONFIGURAÇÕES</h2>
+                
+                <div class="space-y-4">
+                    <!-- Sensibilidade -->
+                    <div class="flex flex-col gap-1">
+                        <div class="flex justify-between text-xs text-neutral-400">
+                            <span>Sensibilidade da Câmera</span>
+                            <span id="val-sens">1.5</span>
+                        </div>
+                        <input id="cfg-sens" type="range" min="0.5" max="4.0" step="0.1" value="1.5" oninput="updateConfig('sens', this.value)" class="w-full accent-yellow-500 bg-neutral-800 h-1.5 rounded-lg appearance-none cursor-pointer">
+                    </div>
+
+                    <!-- Distância de Renderização (Fog) -->
+                    <div class="flex flex-col gap-1">
+                        <div class="flex justify-between text-xs text-neutral-400">
+                            <span>Densidade da Neblina (Renderização)</span>
+                            <span id="val-fog">Média</span>
+                        </div>
+                        <input id="cfg-fog" type="range" min="1" max="3" step="1" value="2" oninput="updateConfig('fog', this.value)" class="w-full accent-yellow-500 bg-neutral-800 h-1.5 rounded-lg appearance-none cursor-pointer">
+                    </div>
+
+                    <!-- Volume de Som -->
+                    <div class="flex flex-col gap-1">
+                        <div class="flex justify-between text-xs text-neutral-400">
+                            <span>Volume Geral (Zumbido / Sons)</span>
+                            <span id="val-vol">60%</span>
+                        </div>
+                        <input id="cfg-vol" type="range" min="0" max="100" step="5" value="60" oninput="updateConfig('vol', this.value)" class="w-full accent-yellow-500 bg-neutral-800 h-1.5 rounded-lg appearance-none cursor-pointer">
+                    </div>
+
+                    <!-- Qualidade Gráfica -->
+                    <div class="flex flex-col gap-1">
+                        <span class="text-xs text-neutral-400">Qualidade Gráfica</span>
+                        <div class="grid grid-cols-3 gap-2 mt-1">
+                            <button id="btn-g-low" onclick="updateConfig('quality', 'low')" class="py-1.5 text-xs font-bold rounded border border-neutral-700 bg-neutral-800 text-neutral-400">BAIXA</button>
+                            <button id="btn-g-med" onclick="updateConfig('quality', 'medium')" class="py-1.5 text-xs font-bold rounded border border-yellow-500/50 bg-yellow-600/20 text-yellow-500">MÉDIA</button>
+                            <button id="btn-g-high" onclick="updateConfig('quality', 'high')" class="py-1.5 text-xs font-bold rounded border border-neutral-700 bg-neutral-800 text-neutral-400">ALTA</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-8 flex justify-center">
+                    <button onclick="closeMenu('settings-menu')" class="bg-yellow-600/10 hover:bg-yellow-600/30 border border-yellow-500/30 hover:border-yellow-500 text-yellow-500 font-bold py-2 px-8 rounded text-xs tracking-wider transition-all">
+                        VOLTAR AO MENU
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= MENU CRÉDITOS ================= -->
+        <div id="credits-menu" class="hidden absolute inset-0 bg-neutral-950/95 vhs-noise z-40 flex flex-col items-center justify-center pointer-events-auto">
+            <div class="w-11/12 max-w-md bg-neutral-900/80 border border-yellow-600/30 p-6 rounded-lg shadow-2xl text-center">
+                <h2 class="text-xl font-bold text-yellow-500 tracking-wider mb-4 border-b border-yellow-500/20 pb-3">CRÉDITOS</h2>
+                <div class="space-y-4 text-xs text-neutral-300 leading-relaxed text-justify">
+                    <p>Obrigado por jogar <span class="text-yellow-500 font-bold">Backrooms -- Versão Final</span>!</p>
+                    <p>Este jogo é um tributo ao famoso fenômeno da internet ("The Backrooms" Level 0) criado originalmente por Kane Pixels e pela comunidade Creepypasta de terror analógico.</p>
+                    <p class="font-bold text-yellow-500/95">Desenvolvimento:</p>
+                    <ul class="list-disc pl-5 space-y-1 text-neutral-400">
+                        <li>Direção de Arte e Conceito: <span class="text-neutral-200 font-bold">Emanuel</span></li>
+                        <li>Motor Gráfico: Three.js (Renderização WebGL 3D)</li>
+                        <li>Áudio Sintetizado: Web Audio API</li>
+                    </ul>
+                    <p class="text-[10px] text-neutral-500 text-center italic mt-2">"Se você não tomar cuidado e sair da realidade nas áreas erradas..."</p>
+                </div>
+                <div class="mt-6">
+                    <button onclick="closeMenu('credits-menu')" class="bg-yellow-600/10 hover:bg-yellow-600/30 border border-yellow-500/30 hover:border-yellow-500 text-yellow-500 font-bold py-2 px-8 rounded text-xs tracking-wider transition-all">
+                        FECHAR
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= HUD DO JOGO EM EXECUÇÃO ================= -->
+        <div id="game-hud" class="hidden absolute inset-0 w-full h-full pointer-events-none flex flex-col justify-between p-4">
+            
+            <!-- Linha do Topo (Bateria, Lanterna, Botão de Pausa) -->
+            <div class="flex justify-between items-start w-full">
+                <!-- Status da Bateria / Lanterna -->
+                <div class="flex flex-col bg-black/40 border border-neutral-800 p-2 rounded text-[10px] text-neutral-300 tracking-widest backdrop-blur-xs">
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-ping"></span>
+                        <span>GRAVANDO... [REC]</span>
+                    </div>
+                    <div class="mt-1 flex items-center gap-1">
+                        <span>BATERIA:</span>
+                        <div class="w-12 h-3 border border-neutral-500 rounded p-0.5 flex">
+                            <div id="hud-battery" class="h-full bg-yellow-500 w-full transition-all duration-1000"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botão Menu de Pausa -->
+                <button onclick="pauseGame()" class="pointer-events-auto bg-black/50 border border-yellow-500/30 hover:bg-yellow-500/20 text-yellow-500 text-xs px-3 py-1.5 rounded tracking-widest">
+                    PAUSAR
+                </button>
+            </div>
+
+            <!-- Centro da Tela - Mira Discreta -->
+            <div class="absolute inset-0 flex items-center justify-center opacity-30 pointer-events-none">
+                <div class="w-1 h-1 bg-white rounded-full"></div>
+            </div>
+
+            <!-- Linha Inferior - Joysticks e Botões de Ação -->
+            <div class="flex justify-between items-end w-full pb-2 px-2">
+                <!-- Joystick de Movimento (Esquerdo) -->
+                <div class="pointer-events-auto relative">
+                    <div id="joystick" class="joystick-zone flex items-center justify-center select-none">
+                        <div id="joystick-stick" class="joystick-handle shadow-lg transform translate-x-0 translate-y-0"></div>
+                    </div>
+                </div>
+
+                <!-- Botão de Lanterna (Direito) -->
+                <div class="pointer-events-auto flex flex-col items-center gap-4">
+                    <!-- Botão Flashlight -->
+                    <button id="btn-flashlight" onclick="toggleFlashlight()" class="w-14 h-14 bg-yellow-500/20 hover:bg-yellow-500/40 border-2 border-yellow-500 text-yellow-500 rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-all">
+                        <!-- Ícone de Lanterna -->
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= TELA DE PAUSA ================= -->
+        <div id="pause-screen" class="hidden absolute inset-0 bg-neutral-950/90 z-30 flex flex-col items-center justify-center pointer-events-auto">
+            <h2 class="text-3xl font-extrabold text-yellow-500 tracking-wider mb-6 animate-pulse">JOGO PAUSADO</h2>
+            <div class="flex flex-col gap-3 w-64">
+                <button onclick="resumeGame()" class="w-full bg-yellow-600/20 hover:bg-yellow-600/40 border border-yellow-500/50 hover:border-yellow-500 text-yellow-500 font-bold py-3 px-6 rounded transition duration-200 uppercase tracking-widest text-xs">
+                    Continuar Explorando
+                </button>
+                <button onclick="openMenu('settings-menu')" class="w-full bg-neutral-900/60 hover:bg-neutral-800 border border-neutral-700 text-neutral-300 py-2.5 px-6 rounded transition duration-200 tracking-widest text-xs">
+                    Configurações
+                </button>
+                <button onclick="exitToMenu()" class="w-full bg-red-950/20 hover:bg-red-950/40 border border-red-500/30 hover:border-red-500 text-red-400 py-2.5 px-6 rounded transition duration-200 tracking-widest text-xs">
+                    Sair do Jogo
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- SCRIPT PRINCIPAL DO JOGO -->
     <script>
-        const canvas = document.getElementById("renderCanvas");
-        // Optimização de engine para 60fps
-        const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: false, stencil: false });
-        const scene = new BABYLON.Scene(engine);
-        let active = false;
-        let mv = { x: 0, z: 0 };
-        let joyId = null;
-
-        scene.ambientColor = new BABYLON.Color3(0.3, 0.25, 0.1);
-        scene.gravity = new BABYLON.Vector3(0, -0.15, 0);
-        scene.collisionsEnabled = true;
-        scene.blockfreezing = true; // Ganho de performance
-
-        const cam = new BABYLON.FreeCamera("cam", new BABYLON.Vector3(0, 1.8, 0), scene);
-        cam.attachControl(canvas, true);
-        cam.minZ = 0.15;
-        cam.checkCollisions = true;
-        cam.applyGravity = true;
-        cam.ellipsoid = new BABYLON.Vector3(0.4, 0.9, 0.4);
-        cam.angularSensibility = 2500;
-        cam.inertia = 0.8;
-
-        const flashlight = new BABYLON.SpotLight("fl", BABYLON.Vector3.Zero(), new BABYLON.Vector3(0,0,1), 0.8, 2, scene);
-        flashlight.parent = cam;
-        flashlight.intensity = 0;
-        flashlight.diffuse = new BABYLON.Color3(1, 1, 0.85);
-
-        const wallMat = new BABYLON.StandardMaterial("w", scene);
-        wallMat.diffuseColor = new BABYLON.Color3(0.8, 0.72, 0.35);
-        wallMat.freeze(); // Otimiza material estático
-
-        const lightMat = new BABYLON.StandardMaterial("l", scene);
-        lightMat.emissiveColor = new BABYLON.Color3(1, 0.95, 0.6);
-        lightMat.freeze();
-
-        const chunks = new Map();
-        const draw = (x, z) => {
-            const node = new BABYLON.TransformNode("n");
-            const s = 14; const h = 8;
-            
-            const f = BABYLON.MeshBuilder.CreateBox("f", {width:s, height:0.2, depth:s}, scene);
-            f.position.set(x*s, 0, z*s); f.material = wallMat; f.checkCollisions = true; f.parent = node;
-            f.freezeWorldMatrix(); // Não recalcula posição
-
-            const c = BABYLON.MeshBuilder.CreateBox("c", {width:s, height:0.2, depth:s}, scene);
-            c.position.set(x*s, h, z*s); c.material = wallMat; c.parent = node;
-            c.freezeWorldMatrix();
-
-            const lamp = BABYLON.MeshBuilder.CreatePlane("lp", {width: 2.5, height: 1.2}, scene);
-            lamp.position.set(x*s, h - 0.05, z*s); lamp.rotation.x = Math.PI/2; lamp.material = lightMat; lamp.parent = node;
-            lamp.freezeWorldMatrix();
-
-            const pl = new BABYLON.PointLight("pl", new BABYLON.Vector3(x*s, h-1.5, z*s), scene);
-            pl.intensity = 0.35; pl.range = 22; pl.diffuse = new BABYLON.Color3(1, 0.85, 0.5);
-            
-            if (Math.random() > 0.4) {
-                const w = BABYLON.MeshBuilder.CreateBox("w", {width: s, height: h, depth: 1.2}, scene);
-                w.position.set(x*s, h/2, z*s + 6.4); w.material = wallMat; w.checkCollisions = true; w.parent = node;
-                w.freezeWorldMatrix();
-            }
-            return node;
+        // CONFIGURAÇÕES DO JOGO
+        let config = {
+            sensitivity: 1.5,
+            fogDensity: 0.15, // Média por padrão
+            volume: 0.6,
+            graphics: 'medium' // 'low', 'medium', 'high'
         };
 
-        function iniciarTudo() {
-            document.getElementById('ui-master').style.display = 'none';
-            // Pré-geração das 100 salas
-            for(let i = -5; i <= 5; i++) for(let j = -5; j <= 5; j++) {
-                const id = i+"_"+j; if (!chunks.has(id)) chunks.set(id, draw(i, j));
-            }
-            const intro = document.getElementById('intro');
-            const msg = document.getElementById('msg');
-            intro.style.display = 'flex';
-            const steps = ["EMANUEL APRESENTA", "BACKROOMS REMAKE LITE"];
-            let cur = 0;
-            const next = () => {
-                if(cur < steps.length) {
-                    msg.innerText = steps[cur]; msg.style.opacity = 1;
-                    setTimeout(() => { msg.style.opacity = 0; cur++; setTimeout(next, 1000); }, 2000);
-                } else {
-                    intro.style.display = 'none'; canvas.style.display = 'block';
-                    document.getElementById('hud').style.display = 'block';
-                    document.getElementById('joy-zone').style.display = 'block';
-                    flashlight.intensity = 3.0; active = true;
-                }
-            };
-            next();
-        }
+        // ESTADO GLOBAL DO JOGO
+        let gameStarted = false;
+        let isPaused = false;
+        let batteryLevel = 100;
+        let flashlightOn = true;
 
-        const knob = document.getElementById('joy-knob');
-        const zone = document.getElementById('joy-zone');
+        // ELEMENTOS DOM
+        const uiContainer = document.getElementById('ui-container');
+        const introScreen = document.getElementById('intro-screen');
+        const mainMenu = document.getElementById('main-menu');
+        const gameHud = document.getElementById('game-hud');
+        const pauseScreen = document.getElementById('pause-screen');
+        const joystickStick = document.getElementById('joystick-stick');
+        const joystickZone = document.getElementById('joystick');
+        const btnFlashlight = document.getElementById('btn-flashlight');
+        const batteryBar = document.getElementById('hud-battery');
 
-        zone.addEventListener('touchstart', (e) => {
-            if (joyId === null) {
-                joyId = e.changedTouches[0].identifier;
-                updateJoy(e.changedTouches[0]);
-                cam.detachControl(canvas);
-            }
-        }, {passive: false});
+        // AUDIO SYNTHESIS (Web Audio API)
+        let audioCtx = null;
+        let ambientHumNode = null;
+        let ambientGainNode = null;
+        let footstepTimer = 0;
 
-        zone.addEventListener('touchmove', (e) => {
-            for (let t of e.changedTouches) {
-                if (t.identifier === joyId) {
-                    updateJoy(t);
-                    e.preventDefault();
-                }
-            }
-        }, {passive: false});
+        // INICIALIZADOR DE ÁUDIO PROCEDURAL
+        function initAudio() {
+            if (audioCtx) return;
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // Criação do som ambiente (Zumbido das fluorescentes das Backrooms)
+                // O zumbido é formado por uma frequência fundamental baixa (60Hz) e harmônicas
+                const osc1 = audioCtx.createOscillator();
+                const osc2 = audioCtx.createOscillator();
+                const filter = audioCtx.createBiquadFilter();
+                ambientGainNode = audioCtx.createGain();
 
-        zone.addEventListener('touchend', (e) => {
-            for (let t of e.changedTouches) {
-                if (t.identifier === joyId) {
-                    joyId = null;
-                    mv = { x: 0, z: 0 };
-                    knob.style.transform = 'translate(0,0)';
-                    cam.attachControl(canvas, true);
-                }
-            }
-        });
+                osc1.type = 'sawtooth';
+                osc1.frequency.setValueAtTime(60, audioCtx.currentTime); // Frequência elétrica de rede elétrica (60Hz)
 
-        function updateJoy(t) {
-            const rect = zone.getBoundingClientRect();
-            let dx = (t.clientX - (rect.left + rect.width/2)) / (rect.width/2);
-            let dy = (t.clientY - (rect.top + rect.height/2)) / (rect.height/2);
-            const dist = Math.sqrt(dx*dx + dy*dy);
-            if(dist > 1) { dx /= dist; dy /= dist; }
-            knob.style.transform = `translate(${dx*35}px, ${dy*35}px)`;
-            mv = { x: dx, z: -dy };
-        }
+                osc2.type = 'triangle';
+                osc2.frequency.setValueAtTime(120, audioCtx.currentTime); // Dobro da fundamental
 
-        scene.onPointerDown = (evt) => {
-            if (evt.x > window.innerWidth / 2) cam.attachControl(canvas, true);
-        };
+                filter.type = 'bandpass';
+                filter.Q.value = 1.2;
+                filter.frequency.value = 1000; // Ruído estático agudo da lâmpada
 
-        scene.onBeforeRenderObservable.add(() => {
-            if (!active) return;
-            const walkSpeed = 0.038; 
-            const f = cam.getDirection(BABYLON.Vector3.Forward());
-            const r = cam.getDirection(BABYLON.Vector3.Right());
-            if(mv.x !== 0 || mv.z !== 0) {
-                cam.cameraDirection.addInPlace(new BABYLON.Vector3(
-                    (f.x * mv.z + r.x * mv.x) * walkSpeed, 0, (f.z * mv.z + r.z * mv.x) * walkSpeed
-                ));
-            }
-            // Loop infinito otimizado
-            const px = Math.round(cam.position.x / 14);
-            const pz = Math.round(cam.position.z / 14);
-            for(let i=px-1; i<=px+1; i++) for(let j=pz-1; j<=pz+1; j++) {
-                if (!chunks.has(i+"_"+j)) chunks.set(i+"_"+j, draw(i, j));
-            }
-        });
+                ambientGainNode.gain.setValueAtTime(config.volume * 0.12, audioCtx.currentTime);
 
-        engine.runRenderLoop(() => scene.render());
-        window.addEventListener("resize", () => engine.resize());
-    </script>
-</body>
-</html>
+                osc1.connect(ambientGainNode);
+                osc2.connect(filter);
+                filter.connect(ambientGainNode);
+                
+                ambientGainNode.connect(audioCtx.destination);
+
+                osc1.start();
+          
